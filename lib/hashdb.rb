@@ -39,7 +39,7 @@ module Hashdb
 		end
 	end
 #This automatically add and commits a record:
-#  db.save({age: 23}) #this feeds the commits 
+#  db.save({"age"=>23}) #this feeds the commits 
 	def save(a)
 		self.feed(a)
 		self.commit
@@ -126,14 +126,14 @@ module Hashdb
 		end
 	end
 #This adds data to a value at the start <b>CAUTION</b> the data must be of the same class
-#  db #=> {"vals" = [1,2,3]}
-#  db.prepend("vals",[4,5,6])  #=> {"vals" = [4,5,6,1,2,3]}   
+#  db #=> {"vals" => [1,2,3]}
+#  db.prepend("vals",[4,5,6])  #=> {"vals" => [4,5,6,1,2,3]}   
 	def prepend(a,data)
 		result = @a[a].class
 		if result.eql? Hash
 			@a[a] = data.merge(@a[a])
 		else
-			@a[a] = @a[a]+data
+			@a[a] = data+@a[a]
 		end
 	end
 #This joins several keys to a certain key <b>CAUTION</b> the key values must be of the same class
@@ -171,8 +171,8 @@ module Hashdb
 	end
 #This allows you to manually add json data into the hashdb
 #  db = {}
-#  db.storejson({"a":"A","b":"B"})  #=> {"a"=>"A","b"=>"B"}
-	def storejson(a)
+#  db.feedjson({"a":"A","b":"B"})  #=> {"a"=>"A","b"=>"B"}
+	def feedjson(a)
 		x = JSON.generate(a)
 		self.feed(JSON.parse(x))
 	end
