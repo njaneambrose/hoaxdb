@@ -8,7 +8,7 @@ module Hashdb
 #
 #For flexibility and convience of keys due to the json nature of storage use:
 #  {"name"=>"Me"} not {:name =>"Me"} or {name:"Me"}
-#When adding doing any operation on the hashdb
+#When adding or doing any operation on the hashdb
     class Db < Hash
 #Initialize a Hashdb with:
 #  require 'hashdb'
@@ -90,7 +90,19 @@ module Hashdb
 #  db.gethash("name") #=> {"name"=>"Ruby"}  
     def gethash(a)
         JSON.parse(self.getjson(a))
-    end 
+    end
+#This returns xml from a selected key
+#   db.getxml("name") #=> <name>Ruby</name>     
+    def getxml(a)
+        r = ""
+        if ishash(@a[a])
+            r = self.xmlhash(a,@a[a])
+        elsif isarray(@a[a])
+            r = self.xmlarray(a,@a[a])
+        else
+           r = "<#{a}>#{@a[a]}</#{a}>"
+        end    
+    end    
 #This writes the hashdb to a file in json format
 #  db.writejson("data.json")  #=> it is equal to db >> "data.json" 
     def writejson(a)
@@ -119,8 +131,8 @@ module Hashdb
         @a.delete(b)
     end
 #This adds data to a value at the end <b>CAUTION</b> the data must be of the same class
-#  db #=> {"vals" = [1,2,3]}
-#  db.append("vals",[4,5,6])  #=> {"vals" = [1,2,3,4,5,6]}  
+#  db #=> {"vals" => [1,2,3]}
+#  db.append("vals",[4,5,6])  #=> {"vals" => [1,2,3,4,5,6]}  
     def append(a,data)
         result = @a[a].class
         if result.eql? Hash
@@ -171,7 +183,7 @@ module Hashdb
 #  db  #=> {"a"="A","b"=>"B"} 
 #  db.json  #=> {"a":"A","b":"B"} 
     def json
-     JSON.generate(@a)
+        JSON.generate(@a)
     end
 #This allows you to manually add json data into the hashdb
 #  db = {}
@@ -197,7 +209,7 @@ module Hashdb
             end     
         }
     end
-#This function is supposed to load another hashdb from a file and merge it to the current
+#This function is supposed to load another hashdb from a file and merge it to the current can also be used for restore
 # db #=> {}
 # db.load("data")  #=> {"a"=>"A"}
     def load(a)
@@ -210,10 +222,25 @@ module Hashdb
             raise "Your database does not exist"  
         end
     end
-#This ofloads the hashdb to a file other than the current file   
+#This offloads the hashdb to a file other than the current file and  can also be used for backup pourposes
     def offload(a)
         Zlib::GzipWriter.open(a) do |gz|
             gz.write(JSON.generate(@a))
+        end
+    end
+#This reloads data from the file
+#  db  #=> {"name"=>"Ruby"}
+#  db.clear   #=> {}
+#  db.reload  #=> {"name"=>"Ruby"}   
+    def reload
+        @a.clear
+        if File::exists? @file
+            Zlib::GzipReader.open(@file) do |gz|
+                x = JSON.parse(gz.read)
+                x.each{|k,v| @a.store(k,v)}
+            end
+        else
+            Zlib::GzipWriter.open(a).close  
         end
     end
 #Tests an array    
@@ -232,7 +259,8 @@ module Hashdb
             return false
         end    
     end
-#generates xml from an array    
+#This method generates xml from an array
+# db.xmlarray("array",[2,5])  #=> <array><sarray>2</sarray><sarray>5</sarray></array>
     def xmlarray(k,a)
         sub = "<#{k}>"
         a.each{|o|
@@ -247,7 +275,9 @@ module Hashdb
         sub << "</#{k}>"
         sub    
     end
-#This is the main xml generator method    
+#This is the method generates xml from a hash not just from the hashdb but from anywhere
+# ex  #=> {"name"=>"Ambrose"}
+# db.xmlhash("data",ex)  #=> <data><name>Ambrose</name></data>   
     def xmlhash(x,k)
         sub = "<#{x}>"
         k.each do |q,v|
@@ -277,13 +307,23 @@ module Hashdb
 #  db.xml("here")  #=> <here><name>Myself</name></here>
 #<b>Below notice the prefixed 's' eg 'snames' for an array</b>
 #  db.xml("here")  #=> {"names"=>[1,3],"Me"=>"Myself"}  #=> <here><names><snames>1</snames><snames>2</snames></names><Me>Myself</Me></here>
-#  db.xml("here") #=>  {"name"=>{"1"=>"Ruby",2="JRuby"}} #=> <here><name><1>Ruby</1><2>JRuby</2></name> 
+#  db.xml("here") #=>  {"name"=>{"1"=>"Ruby",2="JRuby"}} #=> <here><name><1>Ruby</1><2>JRuby</2></name></here> 
     def xml(a)
         main = xmlhash(a,@a)
         main
+    end
+#This helps you traverse through a tree of hash like xpath
+#  db #=> {"1"=>{"name"=>"Ruby","langs"=>"{"1"=>"JRuby",2="CRuby"}}}
+#  #You can get CRuby by two methods as below:
+#  db["1"]["langs"]["2"]  #=> opt1
+#  db.hpath("1/langs/2")  #=> hpath option     
+    def hpath(a)
+        e = a.split("/")
+        x = @a[e[0]]
+        for u in 1...e.length
+            x = x[e[u]]
+        end
+        return x
     end    
 end
 end
-
-x = Hashdb::Db.new("data")
-puts x
