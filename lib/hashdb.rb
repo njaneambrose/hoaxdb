@@ -197,5 +197,93 @@ module Hashdb
             end     
         }
     end
+#This function is supposed to load another hashdb from a file and merge it to the current
+# db #=> {}
+# db.load("data")  #=> {"a"=>"A"}
+    def load(a)
+        if File::exists? a
+            Zlib::GzipReader.open(a) do |gz|
+                x = JSON.parse(gz.read)
+                x.each{|k,v| @a.store(k,v)}
+            end
+        else
+            raise "Your database does not exist"  
+        end
+    end
+#This ofloads the hashdb to a file other than the current file   
+    def offload(a)
+        Zlib::GzipWriter.open(a) do |gz|
+            gz.write(JSON.generate(@a))
+        end
+    end
+#Tests an array    
+    def isarray(e)
+        if e.class == Array
+            return true
+        else
+            return false
+        end    
+    end
+#Tests a Hash     
+    def ishash(e)
+        if e.class == Hash
+            return true
+        else
+            return false
+        end    
+    end
+#generates xml from an array    
+    def xmlarray(k,a)
+        sub = "<#{k}>"
+        a.each{|o|
+            if isarray(o)
+                sub << xmlarray("array",o);
+            elsif ishash(o)
+                sub << xmlhash("hash",o)
+            else
+                sub << "<s#{k}>#{o}</s#{k}>"
+            end    
+        }
+        sub << "</#{k}>"
+        sub    
+    end
+#This is the main xml generator method    
+    def xmlhash(x,k)
+        sub = "<#{x}>"
+        k.each do |q,v|
+            if isarray(v)
+                sub << xmlarray(q,v);
+            elsif ishash(v)
+                sub << "<#{q}>"
+                v.each{|t,b|
+                    if isarray(b)
+                        sub << xmlarray(t,b)
+                    elsif ishash(b)
+                        sub << xmlhash(t,b);
+                    else
+                        sub << "<#{t}>#{b}</#{t}>"
+                    end
+                }
+                sub << "</#{q}>"
+            else
+               sub << "<#{q}>#{v}</#{q}>" 
+            end    
+        end
+        sub << "</#{x}>"
+        sub
+    end
+#This function tries to generate xml data from the hashdb <b>!CAUTION! Avoid complex structures</b>
+#  db   #=> {"name"=>"Myself"}
+#  db.xml("here")  #=> <here><name>Myself</name></here>
+#<b>Below notice the prefixed 's' eg 'snames' for an array</b>
+#  db.xml("here")  #=> {"names"=>[1,3],"Me"=>"Myself"}  #=> <here><names><snames>1</snames><snames>2</snames></names><Me>Myself</Me></here>
+#  db.xml("here") #=>  {"name"=>{"1"=>"Ruby",2="JRuby"}} #=> <here><name><1>Ruby</1><2>JRuby</2></name> 
+    def xml(a)
+        main = xmlhash(a,@a)
+        main
+    end    
 end
 end
+
+x = Hashdb::Db.new("data")
+puts x
