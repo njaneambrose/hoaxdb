@@ -6,23 +6,79 @@ module Hashdb
 #This is a simple database based on a hash that gives various data manipulating methods,
 #It inherits a Hash hence all the methods of a hash are possible plus the methods below.
 #
-#For flexibility and convience of keys due to the json nature of storage use:
+#For flexibility and convenience of keys due to the json nature of storage use:
 #  {"name"=>"Me"} not {:name =>"Me"} or {name:"Me"}
 #When adding or doing any operation on the hashdb
     class Db < Hash
-#Initialize a Hashdb with:
+#Initialize a Hashdb with <b>if name is not pass as it tells that you do not want to load all values from one hashdb but from various</b>:
 #  require 'hashdb'
-#  db = Hashdb.new("data") #This reads or create a database in the file
+#  db = Hashdb.new("data") #This reads or create a database in the file  
     def initialize(a)
         @file = a
         @a  = super
-        if File::exists? a
-            Zlib::GzipReader.open(@file) do |gz|
+        if !a.eql? "pass"
+            if File::exists? a 
+                Zlib::GzipReader.open(@file) do |gz|
+                    x = JSON.parse(gz.read)
+                    x.each{|k,v| @a.store(k,v)}
+                end
+            else
+                Zlib::GzipWriter.open(a).close  
+            end
+        end    
+    end
+#This loads a key and value from a hashdb to the current hashdb
+#  db  #=> {}
+#  db.from("data","one")  #=> {"one"=>1}
+#  db.from("letters","a") #=> {"one"=>1,"a"=>"A"}   
+    def from(db,key)
+        if File::exists? db
+            Zlib::GzipReader.open(db) do |gz|
                 x = JSON.parse(gz.read)
-                x.each{|k,v| @a.store(k,v)}
+                val = x[key]
+                @a.store(key,val)
             end
         else
-            Zlib::GzipWriter.open(a).close  
+            raise "Your database does not exist"  
+        end
+    end
+#This adds data to a hashdb apart from the current one
+#  db  #=> {}
+#  db.send("data","Ruby")  #=> this adds this key and value to data
+    def send(db,key)
+        if File::exists? db
+            x = {}
+            Zlib::GzipReader.open(db) do |gz|
+                x = JSON.parse(gz.read)
+            end
+            val = @a[key]
+            x.store(key,val)
+            Zlib::GzipWriter.open(db) do |gz|
+                gz.write(JSON.generate(x))
+            end                
+        else
+            raise "Your database does not exist"  
+        end
+    end
+#This adds data to another hashdb inform of a hash
+#  db  #=> {}
+#  db.send("data",{"name"=>"Ruby"})  #=> this adds this hash to data
+    def sendhash(db,key)
+        if File::exists? db
+            x = {}
+            begin
+                Zlib::GzipReader.open(db) do |gz|
+                    x = JSON.parse(gz.read)
+                end
+            rescue JSON::ParserError
+                x = {}
+            end    
+            key.each{|k,v| x.store(k,v)}
+            Zlib::GzipWriter.open(db) do |gz|
+                gz.write(JSON.generate(x))
+            end                
+        else
+            raise "Your database does not exist"  
         end
     end
 #This adds a hash to the Hashdb
@@ -313,7 +369,7 @@ module Hashdb
         main
     end
 #This helps you traverse through a tree of hash like xpath
-#  db #=> {"1"=>{"name"=>"Ruby","langs"=>"{"1"=>"JRuby",2="CRuby"}}}
+#  db #=> {"1"=>{"name"=>"Ruby","langs"=>"{"1"=>"JRuby",2=>"CRuby"}}}
 #  #You can get CRuby by two methods as below:
 #  db["1"]["langs"]["2"]  #=> opt1
 #  db.hpath("1/langs/2")  #=> hpath option     
@@ -324,6 +380,6 @@ module Hashdb
             x = x[e[u]]
         end
         return x
-    end    
-end
+    end
+    end
 end
