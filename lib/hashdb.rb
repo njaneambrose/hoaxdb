@@ -3,7 +3,7 @@ require "zlib"
 require "json"
 
 module Hashdb
-#This is a simple database based on a hash that gives various data manipulating methods,
+#This is a simple key and value database based on a hash that gives with rich data manipulating methods,
 #It inherits a Hash hence all the methods of a hash are possible plus the methods below.
 #
 #For flexibility and convenience of keys due to the json nature of storage use:
@@ -17,34 +17,42 @@ module Hashdb
         @file = a
         @a  = super
         if !a.eql? "pass"
-            if File::exists? a 
-                Zlib::GzipReader.open(@file) do |gz|
-                    x = JSON.parse(gz.read)
-                    x.each{|k,v| @a.store(k,v)}
-                end
+            if File::exists? a
+                begin
+                    Zlib::GzipReader.open(@file) do |gz|
+                        x = JSON.parse(gz.read)
+                        x.each{|k,v| @a.store(k,v)}
+                    end
+                rescue JSON::ParserError
+                    @a = super
+                end    
             else
                 Zlib::GzipWriter.open(a).close  
             end
         end    
     end
-#This loads a key and value from a hashdb to the current hashdb
+#This loads a key and value from another hashdb to the working hashdb
 #  db  #=> {}
 #  db.from("data","one")  #=> {"one"=>1}
 #  db.from("letters","a") #=> {"one"=>1,"a"=>"A"}   
     def from(db,key)
         if File::exists? db
-            Zlib::GzipReader.open(db) do |gz|
-                x = JSON.parse(gz.read)
-                val = x[key]
-                @a.store(key,val)
-            end
+            begin
+                Zlib::GzipReader.open(db) do |gz|
+                    x = JSON.parse(gz.read)
+                    val = x[key]
+                    @a.store(key,val)
+                end
+            rescue JSON::ParserError
+                puts "Error in reading"
+            end    
         else
             raise "Your database does not exist"  
         end
     end
 #This adds data to a hashdb apart from the current one
 #  db  #=> {}
-#  db.send("data","Ruby")  #=> this adds this key and value to data
+#  db.send("data","Ruby")  #=> this adds this key and it's value to data from your current hashdb
     def send(db,key)
         if File::exists? db
             x = {}
@@ -62,7 +70,7 @@ module Hashdb
     end
 #This adds data to another hashdb inform of a hash
 #  db  #=> {}
-#  db.send("data",{"name"=>"Ruby"})  #=> this adds this hash to data
+#  db.send("data",{"name"=>"Ruby"})  #=> this adds this hash to data hashdb
     def sendhash(db,key)
         if File::exists? db
             x = {}
@@ -98,7 +106,7 @@ module Hashdb
         end
     end
 #This automatically adds and commits the hashdb:
-#  db.save({"age"=>23}) #this feeds the commits 
+#  db.save({"age"=>23}) #this feeds and commits 
     def save(a)
         self.feed(a)
         self.commit
@@ -248,7 +256,7 @@ module Hashdb
         x = JSON.generate(a)
         self.feed(JSON.parse(x))
     end
-#This reads values into the hashdb from a file in json format    
+#This reads keys and values into the hashdb from a file in json format    
 #  db.readjson("data.json")  #=> it is equal to db << "data.json" 
     def readjson(e)
         File.open(e) do |d|
@@ -279,6 +287,7 @@ module Hashdb
         end
     end
 #This offloads the hashdb to a file other than the current file and  can also be used for backup pourposes
+#  db.offload("data")
     def offload(a)
         Zlib::GzipWriter.open(a) do |gz|
             gz.write(JSON.generate(@a))
@@ -299,7 +308,7 @@ module Hashdb
             Zlib::GzipWriter.open(a).close  
         end
     end
-#Tests an array    
+#Tests an array not for external use 
     def isarray(e)
         if e.class == Array
             return true
@@ -307,7 +316,7 @@ module Hashdb
             return false
         end    
     end
-#Tests a Hash     
+#Tests a Hash not for external use     
     def ishash(e)
         if e.class == Hash
             return true
@@ -315,7 +324,7 @@ module Hashdb
             return false
         end    
     end
-#This method generates xml from an array
+#This method generates xml from an array <b>note the prefixed 's' below</b> 
 # db.xmlarray("array",[2,5])  #=> <array><sarray>2</sarray><sarray>5</sarray></array>
     def xmlarray(k,a)
         sub = "<#{k}>"
@@ -332,8 +341,8 @@ module Hashdb
         sub    
     end
 #This is the method generates xml from a hash not just from the hashdb but from anywhere
-# ex  #=> {"name"=>"Ambrose"}
-# db.xmlhash("data",ex)  #=> <data><name>Ambrose</name></data>   
+# ex  #=> {"name"=>"Ruby","since"=>1993}
+# db.xmlhash("data",ex)  #=> <data><name>Ruby</name><since>1993</since></data>   
     def xmlhash(x,k)
         sub = "<#{x}>"
         k.each do |q,v|
@@ -358,7 +367,7 @@ module Hashdb
         sub << "</#{x}>"
         sub
     end
-#This function tries to generate xml data from the hashdb <b>!CAUTION! Avoid complex structures</b>
+#This function tries to generate xml data from the hashdb <b>!CAUTION! Avoid very complex structures</b>
 #  db   #=> {"name"=>"Myself"}
 #  db.xml("here")  #=> <here><name>Myself</name></here>
 #<b>Below notice the prefixed 's' eg 'snames' for an array</b>
@@ -368,18 +377,34 @@ module Hashdb
         main = xmlhash(a,@a)
         main
     end
-#This helps you traverse through a tree of hash like xpath
+#This helps you traverse through a tree of hashes
 #  db #=> {"1"=>{"name"=>"Ruby","langs"=>"{"1"=>"JRuby",2=>"CRuby"}}}
 #  #You can get CRuby by two methods as below:
 #  db["1"]["langs"]["2"]  #=> opt1
-#  db.hpath("1/langs/2")  #=> hpath option     
-    def hpath(a)
+#  db.hpath_get("1/langs/2")  #=> hpath option     
+    def hpath_get(a)
         e = a.split("/")
         x = @a[e[0]]
         for u in 1...e.length
             x = x[e[u]]
         end
         return x
+    end
+#This helps you edit values to your hashdb
+#  db #=> {"1"=>{"name"=>"Ruby","langs"=>"{"1"=>"JRuby",2=>"CRuby"}}}
+#  #You can edit CRuby by two methods as below:
+#  db["1"]["langs"]["2"] = "DRuby"  #=> opt1
+#  db.hpath_set("1/langs/2","DRuby")  #=> hpath option    
+    def hpath_set(a,b)
+        e = a.split("/")
+        x = e.length
+        if x == 1 then @a[e[0]] = b
+        elsif x == 2 then @a[e[0]][e[1]] = b
+        elsif x == 3 then @a[e[0]][e[1]][e[2]] = b
+        elsif x == 4 then @a[e[0]][e[1]][e[2]][e[3]] = b
+        else
+            raise "Maximum nesting exceeded"
+        end
     end
     end
 end
