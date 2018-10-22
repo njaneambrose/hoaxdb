@@ -9,9 +9,9 @@ Gem::Specification.new do |spec|
   spec.authors       = ["njaneambrose"]
   spec.email         = ["njaneambrose@gmail.com"]
 
-  spec.summary       = %q{A simple database based on a Hash and JSON}
-  spec.description   = %q{A simple database based on a Hash and JSON that extends a Hash}
-  spec.homepage      = "https:://github.com/njaneambrose/hashdb"
+  spec.summary       = %q{A simple key and pair database based on a Hash and JSON}
+  spec.description   = %q{This is a key pair database based on a Hash and uses JSON for storage}
+  spec.homepage      = "https://github.com/njaneambrose/hashdb"
   spec.license       = "MIT"
 
   # Specify which files should be added to the gem when it is released.
