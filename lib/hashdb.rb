@@ -35,9 +35,11 @@ module Hashdb
                         x = JSON.parse(gz.read)
                         x.each{|k,v| @a.store(k,v)}
                     end
-                rescue JSON::ParserError,Zlib::Error
+                rescue Zlib::Error
                     raise "We could not read any keys from #{a} the database may be corrupted"
+                rescue JSON::ParserError    
                     @a = super
+                    trig_json(a)
                 end    
             else
                 Zlib::GzipWriter.open(a).close  
@@ -56,8 +58,10 @@ module Hashdb
                     val = x[key]
                     @a.store(key,val)
                 end
-            rescue JSON::ParserError,Zlib::Error
-                puts "Error in reading #{key} from #{db}"
+            rescue  Zlib::Error
+                raise "Error in reading #{key} from #{db}"
+            rescue JSON::ParserError
+                trig_json(db)
             end    
         else
             raise "#{db} does not exist"  
@@ -78,8 +82,10 @@ module Hashdb
                 Zlib::GzipWriter.open(db) do |gz|
                     gz.write(JSON.generate(x))
                 end
-            rescue JSON::ParserError,Zlib::Error
+            rescue Zlib::Error
                 raise "An Error occured and we could not send your data to #{db}"
+            rescue JSON::ParserError
+                trig_json(db)
             end    
         else
             raise "Your database does not exist"  
@@ -100,8 +106,10 @@ module Hashdb
                 Zlib::GzipWriter.open(db) do |gz|
                     gz.write(JSON.generate(x))
                 end
-            rescue JSON::ParserError,Zlib::Error
+            rescue Zlib::Error
                 raise "An error occured an we could not send your hash to #{db}"
+            rescue JSON::ParserError
+                trig_json(db)
             end    
         else
             raise "Your database does not exist"  
@@ -286,7 +294,7 @@ module Hashdb
                 self.feed(JSON.parse(d.read))
             end
         rescue
-            raise "We could not complete #{e} transaction"
+            raise "We could not read #{e}"
         end    
     end
 #This removes data from the hashdb if the key is found and the value also matches
@@ -309,8 +317,10 @@ module Hashdb
                     x = JSON.parse(gz.read)
                     x.each{|k,v| @a.store(k,v)}
                 end
-            rescue JSON::ParserError,Zlib::Error
+            rescue Zlib::Error
                 raise "An error occured we could not load #{a}"
+            rescue JSON::ParserError
+                trig_json(a)
             end    
         else
             raise "Your database does not exist"  
@@ -335,8 +345,10 @@ module Hashdb
                     x = JSON.parse(gz.read)
                     x.each{|k,v| @a.store(k,v)}
                 end
-            rescue JSON::ParserError,Zlib::Error
+            rescue Zlib::Error
                 raise "We could not reload #{@file} it may be corrupted"
+            rescue JSON::ParserError
+                trig_json(@file)
             end    
         else
             Zlib::GzipWriter.open(a).close  
@@ -439,6 +451,10 @@ module Hashdb
         else
             raise "Maximum nesting exceeded"
         end
+    end
+    def trig_json(line)
+        err = "JSON Error at #{line} if data/file is null continue else verify your data/file"
+        puts err        
     end
     end
 end
