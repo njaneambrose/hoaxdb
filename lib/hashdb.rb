@@ -3,12 +3,24 @@ require "zlib"
 require "json"
 
 module Hashdb
+#=Introduction
 #This is a simple key and value database based on a hash that gives with rich data manipulating methods,
 #It inherits a Hash hence all the methods of a hash are possible plus the methods below.
 #
 #For flexibility and convenience of keys due to the json nature of storage use:
 #  {"name"=>"Me"} not {:name =>"Me"} or {name:"Me"}
 #When adding or doing any operation on the hashdb
+#=About
+#Although this is a key and value based database i prefer to call it a key and hash based database with support for web routes like queries using hpath:
+#  db   #=> {"ruby"=>{"author"=>"Matz","since"=>1993,"contributors"=>['kro','blah'],"popular"=>"back end"}}
+#Taking the example above you can use hpath_get which imitates website routes e.g:
+#  db.hpath_get("ruby/author")  #=> "Matz"
+#  db.hpath_get("ruby/contributors")  #=> ['kro','blah']
+#  db.hpath_get("ruby/popular")  #=> "back end"
+#Equally setting methods are supported e.g:
+#  db.hpath_set("ruby/author","Yukihoro Matsumoto")
+#  db.hpath_set("ruby/contributors",['Me','You'])
+#  db   #=> {"ruby"=>{"author"=>"Yukihoro Matsumoto","since"=>1993,"contributors"=>['Me','You'],"popular"=>"back end"}}   
     class Db < Hash
 #Initialize a Hashdb with <b>if name is not pass as it tells that you do not want to load all values from one hashdb but from various</b>:
 #  require 'hashdb'
@@ -23,7 +35,8 @@ module Hashdb
                         x = JSON.parse(gz.read)
                         x.each{|k,v| @a.store(k,v)}
                     end
-                rescue JSON::ParserError
+                rescue JSON::ParserError,Zlib::Error
+                    raise "We could not read any keys from #{a} the database may be corrupted"
                     @a = super
                 end    
             else
@@ -43,11 +56,11 @@ module Hashdb
                     val = x[key]
                     @a.store(key,val)
                 end
-            rescue JSON::ParserError
-                puts "Error in reading"
+            rescue JSON::ParserError,Zlib::Error
+                puts "Error in reading #{key} from #{db}"
             end    
         else
-            raise "Your database does not exist"  
+            raise "#{db} does not exist"  
         end
     end
 #This adds data to a hashdb apart from the current one
@@ -56,14 +69,18 @@ module Hashdb
     def send(db,key)
         if File::exists? db
             x = {}
-            Zlib::GzipReader.open(db) do |gz|
-                x = JSON.parse(gz.read)
-            end
-            val = @a[key]
-            x.store(key,val)
-            Zlib::GzipWriter.open(db) do |gz|
-                gz.write(JSON.generate(x))
-            end                
+            begin
+                Zlib::GzipReader.open(db) do |gz|
+                    x = JSON.parse(gz.read)
+                end
+                val = @a[key]
+                x.store(key,val)
+                Zlib::GzipWriter.open(db) do |gz|
+                    gz.write(JSON.generate(x))
+                end
+            rescue JSON::ParserError,Zlib::Error
+                raise "An Error occured and we could not send your data to #{db}"
+            end    
         else
             raise "Your database does not exist"  
         end
@@ -71,20 +88,21 @@ module Hashdb
 #This adds data to another hashdb inform of a hash
 #  db  #=> {}
 #  db.send("data",{"name"=>"Ruby"})  #=> this adds this hash to data hashdb
-    def sendhash(db,key)
+    def send_hash(db,key)
         if File::exists? db
             x = {}
             begin
                 Zlib::GzipReader.open(db) do |gz|
                     x = JSON.parse(gz.read)
                 end
-            rescue JSON::ParserError
-                x = {}
+                x = {}   
+                key.each{|k,v| x.store(k,v)}
+                Zlib::GzipWriter.open(db) do |gz|
+                    gz.write(JSON.generate(x))
+                end
+            rescue JSON::ParserError,Zlib::Error
+                raise "An error occured an we could not send your hash to #{db}"
             end    
-            key.each{|k,v| x.store(k,v)}
-            Zlib::GzipWriter.open(db) do |gz|
-                gz.write(JSON.generate(x))
-            end                
         else
             raise "Your database does not exist"  
         end
@@ -120,12 +138,12 @@ module Hashdb
 #This loads and parses a file in json adding the keys and values to the hash
 #  db << "data.json"  
     def <<(a)
-        self.readjson(a)
+        self.read_json(a)
     end
 #This writes your hash to a file in json format
 #  db >> "data.json"  
     def >>(a)
-        self.writejson(a)
+        self.write_json(a)
     end
 #This returns the path to your database
 #  db.path  
@@ -144,20 +162,20 @@ module Hashdb
         File.delete(@file)
     end
 #This returns json from selected key
-#  db.getjson("name") #=> {"name":"Ruby"} 
-    def getjson(a)
+#  db.get_json("name") #=> {"name":"Ruby"} 
+    def get_json(a)
         x = {}
         x.store(a,@a[a])
         JSON.generate(x)
     end
 #This returns a hash from selected key
-#  db.gethash("name") #=> {"name"=>"Ruby"}  
-    def gethash(a)
-        JSON.parse(self.getjson(a))
+#  db.get_hash("name") #=> {"name"=>"Ruby"}  
+    def get_hash(a)
+        JSON.parse(self.get_json(a))
     end
 #This returns xml from a selected key
-#   db.getxml("name") #=> <name>Ruby</name>     
-    def getxml(a)
+#   db.get_xml("name") #=> <name>Ruby</name>     
+    def get_xml(a)
         r = ""
         if ishash(@a[a])
             r = self.xmlhash(a,@a[a])
@@ -169,7 +187,7 @@ module Hashdb
     end    
 #This writes the hashdb to a file in json format
 #  db.writejson("data.json")  #=> it is equal to db >> "data.json" 
-    def writejson(a)
+    def write_json(a)
         s = File.open(a,'w')
         s << self.json
         s.close
@@ -251,17 +269,25 @@ module Hashdb
     end
 #This allows you to manually add json data into the hashdb
 #  db = {}
-#  db.feedjson({"a":"A","b":"B"})  #=> {"a"=>"A","b"=>"B"}
-    def feedjson(a)
-        x = JSON.generate(a)
-        self.feed(JSON.parse(x))
+#  db.feed_json({"a":"A","b":"B"})  #=> {"a"=>"A","b"=>"B"}
+    def feed_json(a)
+        begin
+            x = JSON.generate(a)
+            self.feed(JSON.parse(x))
+        rescue JSON::ParserError
+            raise "We could not add your json data to the database"
+        end    
     end
 #This reads keys and values into the hashdb from a file in json format    
-#  db.readjson("data.json")  #=> it is equal to db << "data.json" 
-    def readjson(e)
-        File.open(e) do |d|
-            self.feed(JSON.parse(d.read))
-        end   
+#  db.read_json("data.json")  #=> it is equal to db << "data.json" 
+    def read_json(e)
+        begin
+            File.open(e) do |d|
+                self.feed(JSON.parse(d.read))
+            end
+        rescue
+            raise "We could not complete #{e} transaction"
+        end    
     end
 #This removes data from the hashdb if the key is found and the value also matches
 #  db  #=> {"a"="A","b"=>"B"}
@@ -278,10 +304,14 @@ module Hashdb
 # db.load("data")  #=> {"a"=>"A"}
     def load(a)
         if File::exists? a
-            Zlib::GzipReader.open(a) do |gz|
-                x = JSON.parse(gz.read)
-                x.each{|k,v| @a.store(k,v)}
-            end
+            begin
+                Zlib::GzipReader.open(a) do |gz|
+                    x = JSON.parse(gz.read)
+                    x.each{|k,v| @a.store(k,v)}
+                end
+            rescue JSON::ParserError,Zlib::Error
+                raise "An error occured we could not load #{a}"
+            end    
         else
             raise "Your database does not exist"  
         end
@@ -300,10 +330,14 @@ module Hashdb
     def reload
         @a.clear
         if File::exists? @file
-            Zlib::GzipReader.open(@file) do |gz|
-                x = JSON.parse(gz.read)
-                x.each{|k,v| @a.store(k,v)}
-            end
+            begin
+                Zlib::GzipReader.open(@file) do |gz|
+                    x = JSON.parse(gz.read)
+                    x.each{|k,v| @a.store(k,v)}
+                end
+            rescue JSON::ParserError,Zlib::Error
+                raise "We could not reload #{@file} it may be corrupted"
+            end    
         else
             Zlib::GzipWriter.open(a).close  
         end
