@@ -29,7 +29,6 @@ class Query
 end
 
 class Table
-    attr_reader :base,:data
     def initialize(name,args)
         @name = name
         @base = {}
@@ -45,6 +44,12 @@ class Table
             }
         end
         @data = []
+    end
+    def data
+        @data.clone
+    end
+    def base
+        @base.clone
     end
     def valid_type(type)
         types = ['String','Integer','Float','DateTime','Date','Boolean','Array','Hash']
@@ -170,6 +175,18 @@ class Table
             row.delete(col)
         end
     end
+    def rename_column(col,ncol)
+        if @base.has_key? col
+            val = @base[col]
+            @base.delete(col)
+            @base.store(ncol,val)
+            @data.each do |row|
+                val = row[col]
+                row.delete(col)
+                row.store(ncol,val)
+            end
+        end
+    end
     def del_if(query)
         rm = []
         @data = self.load(@data)
@@ -212,7 +229,7 @@ class Table
         if @base[k].eql? 'Integer' or @base[k].eql? 'Float'
             sum = 0
             @data.each{|row| sum += row[k]}
-            return (sum/@data.size)
+            return (sum.to_f/@data.size)
         end
     end
     def sum(k)
@@ -222,7 +239,7 @@ class Table
             return sum
         end
     end
-    def select_if(query,cols,limit=-1,sort=false,asc=false)
+    def select_if(query,cols,limit=-1,sort=false,desc=false)
         result = []
         @data = self.load(@data)
         rw = 1
@@ -241,8 +258,8 @@ class Table
                 rw +=1     
             end   
         end
-        if !sort.eql? false
-            result = self.sort(result,sort,asc)
+        if sort
+            result = self.sort(result,sort,desc)
         end
         @data = self.dump_array(@data)
         if cols[0].strip.eql? "*"

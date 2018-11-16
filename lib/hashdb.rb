@@ -4,12 +4,12 @@ require "zlib"
 require "json"
 
 module Hashdb
-    class Db < Hash
+    class Db
 #  require 'hashdb'
 #  db = Hashdb.new("data.db") #This reads or creates a database in the file  
     def initialize(a)
         @file = a
-        @a  = super
+        @a  = {}
         if File::exists? a
             begin
                 Zlib::GzipReader.open(@file) do |gz|
@@ -19,7 +19,7 @@ module Hashdb
             rescue Zlib::Error
                 raise "We could not read any keys from #{a} the database may be corrupted"
             rescue JSON::ParserError    
-                @a = super
+                @a = {}
                 trig_json(a)
             end    
         else
@@ -63,7 +63,9 @@ module Hashdb
 #This writes your hash to a file in json format
 #  db >> "data.json"  
     def >>(a)
-        self.write_json(a)
+        f = File.open(a,'w')
+        f << @a.to_json
+        f.close
     end
 #This returns the path to your database
 #  db.path  
@@ -81,14 +83,14 @@ module Hashdb
     def del
         File.delete(@file)
     end
-#This returns json from selected key
+#This returns json from selected table
 #  db.get_json("name") #=> {"name":"Ruby"} 
     def get_json(a)
         x = {}
         x.store(a,@a[a])
         JSON.generate(x)
     end
-#This returns xml from a selected key
+#This returns xml from a selected table
 #   db.get_xml("name") #=> <name>Ruby</name>     
     def get_xml(a)
         r = ""

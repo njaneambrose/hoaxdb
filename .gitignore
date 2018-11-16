@@ -7,5 +7,5 @@
 /spec/reports/
 /tmp/
 lib/hash.rb
-lib/data
+lib/data.db
 lib/e.xml
