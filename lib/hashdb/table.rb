@@ -148,6 +148,9 @@ class Table
         @data.push(dt)         
     end
     def add_column(col,type)
+        if @base.has_key? col
+            raise "Column #{col} already exists"
+        end
         if valid_type(type['type'])
             self.validate(type)
             @base.store(col,type)
@@ -198,6 +201,8 @@ class Table
                 row.delete(col)
                 row.store(ncol,val)
             end
+        else
+            raise "Column #{col} does not exist"
         end
     end
     def del_if(query)

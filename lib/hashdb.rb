@@ -1,5 +1,5 @@
 require "hashdb/version"
-require "./hashdb/table"
+require "hashdb/table"
 require "zlib"
 require "json"
 require "thread"
@@ -32,6 +32,9 @@ module Hashdb
     end
 #Creating a table
     def create_table(name,base)
+        if @a.has_key? name
+            raise "Table #{name} already exists"
+        end
         tbase = name + "_base"
         @a.store(tbase,{})
         x = Table.new(name,base)
@@ -51,6 +54,8 @@ module Hashdb
             x = Table.new(name,@a[tbase])
             x.inject(@a[tbase],@a[name])
             return x
+        else
+            raise "Table #{name} does not exist"
         end
     end 
 #List Tables
