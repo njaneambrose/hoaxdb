@@ -2,6 +2,7 @@ require "hashdb/version"
 require "./hashdb/table"
 require "zlib"
 require "json"
+require "thread"
 
 module Hashdb
     class Db
@@ -10,21 +11,24 @@ module Hashdb
     def initialize(a)
         @file = a
         @a  = {}
-        if File::exists? a
-            begin
-                Zlib::GzipReader.open(@file) do |gz|
-                    x = JSON.parse(gz.read)
-                    x.each{|k,v| @a.store(k,v)}
-                end
-            rescue Zlib::Error
-                raise "We could not read any keys from #{a} the database may be corrupted"
-            rescue JSON::ParserError    
-                @a = {}
-                trig_json(a)
-            end    
-        else
-            Zlib::GzipWriter.open(a).close  
-            end    
+        thr = Thread.new do 
+            if File::exists? a
+                begin
+                    Zlib::GzipReader.open(@file) do |gz|
+                        x = JSON.parse(gz.read)
+                        x.each{|k,v| @a.store(k,v)}
+                    end
+                rescue Zlib::Error
+                    raise "We could not read any keys from #{a} the database may be corrupted"
+                rescue JSON::ParserError    
+                    @a = {}
+                    trig_json(a)
+                end 
+            else
+                Zlib::GzipWriter.open(a).close  
+            end
+        end
+        thr.join    
     end
 #Creating a table
     def create_table(name,base)
@@ -35,7 +39,7 @@ module Hashdb
         @a.store(name,[])
     end
 #Deleting tables
-    def delete_table(name)
+    def drop_table(name)
         tbase = name + "_base"
         @a.delete(name)
         @a.delete(tbase)
@@ -52,13 +56,20 @@ module Hashdb
 #List Tables
     def tables
         @a.keys
-    end    
+    end
+#Delete all tables
+    def clear
+        @a.clear
+    end
 #This saves chages made in the current session
 #  db.commit #saves the database  
     def commit
-        Zlib::GzipWriter.open(@file) do |gz|
-            gz.write(JSON.generate(@a))
-        end
+        thr = Thread.new do
+            Zlib::GzipWriter.open(@file) do |gz|
+                gz.write(JSON.generate(@a))
+            end
+        end 
+        thr.join    
     end
 #This writes your hash to a file in json format
 #  db >> "data.json"  

@@ -1,4 +1,5 @@
 require 'date'
+
 module Hashdb
 
 class Query
@@ -36,7 +37,8 @@ class Table
             raise "Incorrect base for your database"
         else
             args.each{|k,v|
-                if self.valid_type(v)
+                if self.valid_type(v["type"])
+                    self.validate(v)
                     @base.store(k,v)
                 else
                     raise "Invalid data type #{v}"
@@ -44,6 +46,21 @@ class Table
             }
         end
         @data = []
+    end
+    def validate(v)
+        if v["type"].eql? 'Date' or v["type"].eql? 'DateTime' and v["default"]
+            v["default"] = "#{v["default"]}"
+        elsif v["type"].eql? 'Boolean' and !v["default"].nil?
+            if v["default"].class.eql? TrueClass or v["default"].class.eql? FalseClass
+            else
+                raise "Invalid default #{v["default"]} to #{v["type"]}"
+            end
+        else
+             if !v["default"].nil? and !v["default"].class.eql? eval(v["type"])
+                raise "Invalid default #{v["default"]} to #{v["type"]}"
+            end
+        end
+        if v["default"].nil? then v["default"] = nil end
     end
     def data
         @data.clone
@@ -61,11 +78,11 @@ class Table
         data.each do |row|
             row.each do |k,v|
                 if !v.nil?
-                    if @base[k].eql? 'Date'
+                    if @base[k]['type'].eql? 'Date'
                         row[k] = Date.parse(v)
-                    elsif @base[k].eql? 'DateTime'
+                    elsif @base[k]['type'].eql? 'DateTime'
                         row[k] = DateTime.parse(v)
-                    elsif !@base[k].eql? 'String' and v.class.eql? String
+                    elsif !@base[k]['type'].eql? 'String' and v.class.eql? String
                         row[k] = eval(v)
                     end
                 end  
@@ -76,11 +93,11 @@ class Table
     def load_hash(data)
          data.each do |k,v|
             if !v.nil?
-                if @base[k].eql? 'Date'
+                if @base[k]['type'].eql? 'Date'
                     data[k] = Date.parse(v)
-                elsif @base[k].eql? 'DateTime'
+                elsif @base[k]['type'].eql? 'DateTime'
                     data[k] = DateTime.parse(v)
-                elsif !@base[k].eql? 'String' and v.class.eql? String
+                elsif !@base[k]['type'].eql? 'String' and v.class.eql? String
                     data[k] = eval(v)
                 end
             end  
@@ -89,7 +106,7 @@ class Table
     def dump_array(data)
         data.each do |row|
             row.each do |k,v|
-                if @base[k].eql? 'Date' or @base[k].eql? 'DateTime'
+                if @base[k]['type'].eql? 'Date' or @base[k]['type'].eql? 'DateTime'
                     row[k] = "#{v}"
                 end    
             end
@@ -98,7 +115,7 @@ class Table
     end
     def dump_hash(data)
         data.each do |k,v|
-            if @base[k].eql? 'Date' or @base[k].eql? 'DateTime'
+            if @base[k]['type'].eql? 'Date' or @base[k]['type'].eql? 'DateTime'
                 data[k] = "#{v}"
             end    
         end
@@ -107,13 +124,13 @@ class Table
     def insert(data)
         data.each{|k,v|
             if @base[k]
-                if @base[k].eql? 'Boolean'
+                if @base[k]['type'].eql? 'Boolean'
                     if v.class.eql? FalseClass or v.class.eql? TrueClass
                         correct = true
                     else
                         raise "#{v} is not a Boolean value"
                     end
-                elsif !v.class.eql? eval(@base[k])
+                elsif !v.class.eql? eval(@base[k]['type'])
                     raise "Incorrect data type for #{v} to #{@base[k]}"     
                 end
             else
@@ -122,14 +139,20 @@ class Table
         }
         data = self.dump_hash(data)
         dt = {}
-        @base.each_key{|k| dt.store(k,data[k])}
+        @base.each_key{|k|
+            if !data[k] then dt.store(k,@base[k]['default'])
+            else
+                dt.store(k,data[k])
+            end    
+        }
         @data.push(dt)         
     end
     def add_column(col,type)
-        if valid_type(type)
+        if valid_type(type['type'])
+            self.validate(type)
             @base.store(col,type)
             @data.each do |row|
-                row.store(col,nil)
+                row.store(col,@base[col]['default'])
             end
         end    
     end
@@ -139,29 +162,19 @@ class Table
             if eval(Query.new.parse(query))
                 values.each{|k,v|
                     if v.class.eql? String and v[0].eql? "$"
-                        f = Query.new.parse_complex(v.delete("$"))
-                        if row[k].class != Hash                          
-                            temp = (row[k]).clone
-                            eval("temp#{f}")
-                            if temp.class.eql? eval(@base[k])
-                                row[k] = temp
-                            else
-                                raise "Invalid data #{temp} to #{@base[k]}"
-                            end
+                        f = Query.new.parse_complex(v.delete("$"))                       
+                        temp = (row[k]).clone
+                        eval("temp#{f}")
+                        if temp.class.eql? eval(@base[k]['type'])
+                            row[k] = temp
                         else
-                            temp = row[k].clone
-                            eval("temp#{f}")
-                            if temp.class.eql? Hash
-                                row[k] = temp
-                            else
-                               raise "Invalid data #{temp} to #{@base[k]}" 
-                            end
-                        end    
+                            raise "Invalid data #{temp} to #{@base[k]['type']}"
+                        end
                     else
-                       if v.class.eql? eval(@base[k])
+                       if v.class.eql? eval(@base[k]['type'])
                             row[k] = v
                        else
-                            raise "Invalid data #{v} to #{@base[k]}"
+                            raise "Invalid data #{v} to #{@base[k]['type']}"
                        end
                     end
                 }
@@ -169,7 +182,7 @@ class Table
         }
         @data = self.dump_array(@data)
     end
-    def del_column(col)
+    def drop_column(col)
         @base.delete(col)
         @data.each do |row|
             row.delete(col)
@@ -207,33 +220,33 @@ class Table
                     data[w] = temp
                 end
             end
-        end
+        end    
         if flag then data.reverse! end
         data
     end
     def max(k)
-        if @base[k].eql? 'Integer' or @base[k].eql? 'Float'
+        if @base[k]['type'].eql? 'Integer' or @base[k]['type'].eql? 'Float'
             max = @data[0][k] || 0
             @data.each{|row| if row[k] > max then max = row[k] end}
             return max
         end
     end
     def min(k)
-        if @base[k].eql? 'Integer' or @base[k].eql? 'Float'
+        if @base[k]['type'].eql? 'Integer' or @base[k].eql? 'Float'
             min = @data[0][k] || 0
             @data.each{|row| if row[k] < min then min = row[k] end}
             return min
         end
     end
     def avg(k)
-        if @base[k].eql? 'Integer' or @base[k].eql? 'Float'
+        if @base[k]['type'].eql? 'Integer' or @base[k]['type'].eql? 'Float'
             sum = 0
             @data.each{|row| sum += row[k]}
             return (sum.to_f/@data.size)
         end
     end
     def sum(k)
-        if @base[k].eql? 'Integer' or @base[k].eql? 'Float'
+        if @base[k]['type'].eql? 'Integer' or @base[k]['type'].eql? 'Float'
             sum = 0
             @data.each{|row| sum += row[k]}
             return sum
@@ -257,7 +270,7 @@ class Table
                 end
                 rw +=1     
             end   
-        end
+        end   
         if sort
             result = self.sort(result,sort,desc)
         end
