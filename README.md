@@ -1,8 +1,6 @@
 # Hashdb
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/hashdb`. To experiment with that code, run `bin/console` for an interactive prompt.
-
-TODO: Delete this and the text above, and describe your gem
+Hashdb is a simple implementation of a database but uses ruby Hashes and JSON for storage of data. It offers an interface to insert,update,query and delete records like any other databse but does not offer complex features of a database. You set specific data types for your fields and you can also have default values on top of that it validates the records you enter. In terms of queries you can choose specific fields, limits and also sort according to a specific field which can be ascending or descending. Queries are written using ruby hence no external knowledge is needed.
 
 ## Installation
 
@@ -22,17 +20,36 @@ Or install it yourself as:
 
 ## Usage
 
-TODO: Write usage instructions here
+Using the hashdb is very simple once you have installed it, the following are the basics:
+#### Creating a table
 
-## Development
+    require 'hashdb'
+    db = Hashdb.new('products.db') #This reads an existing database or creates a database
+    db.create_table("products",{
+       "name"=>{"type"=>"String","default"=>""}, #setting default prevents nil values
+       "price"=>{"type"=>"Float","default"=>0.0}
+    })
+#### Inserting a record
 
-After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake test` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
+    products.insert({"name"=>"Iphone","price"=>100.67}) #insert a record
+    
+#### Updating  a record
 
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and tags, and push the `.gem` file to [rubygems.org](https://rubygems.org).
+     products.update('this["name"].eql? "Iphone"',{"quantity"=>200})
+    
+#### Selecting records    
+     
+     products.select_if('this["name"].eql? "Iphone"')
+     
+#### Deleting records
 
+    products.del_if('this["name"].eql? "Iphone"')
+
+More information is available via rdoc when the gem is installed
+    
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/hashdb.
+Bug reports and pull requests are welcome on GitHub at https://github.com/njaneambrose/hashdb.
 
 ## License
 

@@ -68,6 +68,9 @@ class Table
     def base
         @base.clone
     end
+    def fields
+        @base.keys
+    end
     def valid_type(type)
         types = ['String','Integer','Float','DateTime','Date','Boolean','Array','Hash']
         found = false
@@ -216,18 +219,44 @@ class Table
         rm.each{|o| @data.delete(o)}
         @data = self.dump_array(@data)
     end
-    def sort(data,key,flag)
-        for w in 0...data.size  
-            for y in 0...data.size
-                if data[w][key] < data[y][key]
-                    temp = data[y]
-                    data[y] = data[w]
-                    data[w] = temp
-                end
+    def sort(a,key,flag)
+        r = []
+        min = 0
+        max = 0
+        for e in 0...a.size
+            if (a[e][key]) > (a[max][key]) then max = e end
+            if (a[e][key]) < (a[min][key]) then min = e end
+        end
+        r.push(a[min])
+        r.push(a[max])
+        a.delete_at(min)
+        if min > max then a.delete_at(max) else a.delete_at(max-1) end
+        for g in 0...a.size
+            x = r.size
+            start = 0; en = 0
+            x /= 2    
+            if a[g][key] == r[x][key] 
+                r.insert(x+1,a[g])
+                next
+            end     
+            if a[g][key] > r[x][key]
+                en = x
+                start = r.size-2
+            else
+                en = 0
+                start = x
             end
-        end    
-        if flag then data.reverse! end
-        data
+            (start).downto(en) do |h|
+                if h.eql? 0 then r.insert(1,a[g]); break end
+                if a[g][key] > r[h][key]
+                    r.insert(h+1,a[g])
+                    break
+                end
+            end    
+        end
+        r    
+        if flag then r.reverse! end
+        r
     end
     def max(k)
         if @base[k]['type'].eql? 'Integer' or @base[k]['type'].eql? 'Float'
@@ -277,12 +306,10 @@ class Table
             end   
         end   
         if sort
-            result = self.sort(result,sort,desc)
+            result = self.sort(result,sort,desc)   
         end
-        @data = self.dump_array(@data)
-        if cols[0].strip.eql? "*"
-            return self.load(result)
-        end   
+        @data = self.dump_array(@data)  
+        result = self.load(result)
         result    
     end
     def inject(base,data) #:nodoc:#

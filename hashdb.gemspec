@@ -9,8 +9,8 @@ Gem::Specification.new do |spec|
   spec.authors       = ["njaneambrose"]
   spec.email         = ["njaneambrose@gmail.com"]
 
-  spec.summary       = %q{A simple key and pair database based on a Hash and JSON}
-  spec.description   = %q{This is a key pair database based on a Hash and uses JSON for storage}
+  spec.summary       = %q{A simple database based on a Hash and JSON}
+  spec.description   = %q{This is simple database based on a Hash that uses JSON for storage.It offers interfaces to create,update,delete and query records with a variety of options for queries}
   spec.homepage      = "https://github.com/njaneambrose/hashdb"
   spec.license       = "MIT"
 

@@ -5,9 +5,75 @@ require "json"
 require "thread"
 
 module Hashdb
+#=Introduction
+#Hashdb is a small implementation of a database using a Hash and JSON for storage. It allows you to create, update, query and delete records.
+#It also allows you to set specific data types for your fields, default values and validates input.The main diffrence is that it uses ruby language for queries, hashes to add data into a database and it does not implement the complex features of ordinary databases.
+#==Field rules
+# Use string keys like ["products"] not [:products] due to JSON nature of storage
+#==Data types
+#The currently supported data types are
+#   Hash, DateTime, Date, Boolean, Float, Integer, Array & String
+#==Saving your work
+# #=> Never forget to call  
+# db.commit 
+# #=> to save the current changes
+#==Querying rules:
+#   1. "this" is used to refrence the current row e.g: this["price"] indicates the current row price
+#   2. The syntax this[.. is used for queries if not * for all rows
+#   3. For equality use .eql? not ==..
+#check the querying section for examples
+#==Updating rules:
+#   1. All rules for querying above apply
+#   2. To edit the current value use $ e.g an Array do: {"array"=>"$.push('value')"}, $ refrences the current value and must be called in a string as the first character
+#check the updating section for examples
+#
+#====CAUTION: Do not use Hashdb for extreme loads due to speed
+#
+#==Creating a table
+#Creating a table is very easy as first you need to connect to a database file then:
+#   require 'hashdb'
+#   db = Hashdb.new('products.db') #This reads an existing database or creates a database
+#   db.create_table("products",{
+#       "name"=>{"type"=>"String","default"=>""}, #setting default prevents nil values
+#       "price"=>{"type"=>"Float","default"=>0.0},
+#       "quantity"=>{"type"=>"Integer","default"=>100},
+#       "shipped"=>{"type"=>"Date"}
+#   })
+#This creates a simple table with three fields
+#==Inserting Records
+#The next step is just a simple as the one above, this is a continuation from above:
+#   products = db.table("products") #this connects to the products table
+#   products.insert({"name"=>"Iphone","price"=>100.67,"shipped"=>Date.new(2018,6,30)}) #insert a record
+#   products.insert({"name"=>"Cable Tvs","price"=>390.67,"shipped"=>Date.new(2018,9,12),"quantity"=>400}) #insert another record
+#   p products.data  #=> [{"name"=>"Iphone","price"=>100.67,"quantity"=>100,shipped=>"2018-6-30"},{"name"=>"Cable Tvs","price"=>390.67,"quantity"=>400,shipped=>"2018-9-12"}]
+#==Querying records
+#   #=>select_if('condtion * for all',[array of the fields you want * for all],limit -1 for no limit,"sort field must be in the fields array",desc=true/false)
+#   #=> condition * indicates all rows
+#   products.select_if('*',["name","price"]) #=> [{"name"=>"Iphone","price"=>100.67},{"name"=>"Cable Tvs","price"=>390.67}]
+#   products.select_if('*',["name","price"],-1,"price") #=> [{"name"=>"Cable Tvs","price"=>390.67},{"name"=>"Iphone","price"=>100.67}]
+#   products.select_if('*',["name","price"],-1,"price",true) #=> [{"name"=>"Iphone","price"=>100.67},{"name"=>"Cable Tvs","price"=>390.67}]
+#   products.select_if('this["price"] > 300',['name','price']) #=> [{"name"=>"Cable Tvs","price"=>390.67}]
+#   products.max("price") #=> 390.67
+#   products.min("price") #=> 100.67
+#   products.avg("price") #=> 245.67
+#   products.sum("price") #=> 491.34
+#==Updating records
+#   #=> table.update('condition * for all',{new values})
+#   #=> condition * indicates all rows
+#   #Incase of a 15% price increase in products do this to update
+#   products.update('*',{"price"=>"$ = this[\"price\"]*1.15"}) #=> Here you see how the $ symbol is used to update the existing value
+#   products.update('this["name"].eql? "Iphone"',{"quantity"=>200})
+#==Deleting records
+#   #=> table.del_if('condition')
+#   products.update('this["name"].eql? "Iphone"')
+#   p products.data #=> [{"name"=>"Cable Tvs","price"=>390.67,"quantity"=>400,shipped=>"2018-9-12"}]
+#==Adding fields
+#   products.add_column("remaining",{"type"=>"Integer","default"=>0})
+#   p products.base  #=> [{"name"=>{"type"=>"String","default"=>""},"price"=>{"type"=>"Float","default"=>0.0},"quantity"=>{"type"=>Integer","default"=>100}, "shipped"=>{"type"=>"Date","default"=>nil},{"remaining"=>{"type"=>"Integer","default"=>0}}]
+#==Deleting fields
+#   products.drop_column("remaining")
+#   p products.base #=> [{"name"=>{"type"=>"String","default"=>""},"price"=>{"type"=>"Float","default"=>0.0},"quantity"=>{"type"=>Integer","default"=>100}, "shipped"=>{"type"=>"Date","default"=>nil}]
     class Db
-#  require 'hashdb'
-#  db = Hashdb.new("data.db") #This reads or creates a database in the file  
     def initialize(a)
         @file = a
         @a  = {}
@@ -30,7 +96,6 @@ module Hashdb
         end
         thr.join    
     end
-#Creating a table
     def create_table(name,base)
         if @a.has_key? name
             raise "Table #{name} already exists"
@@ -41,13 +106,11 @@ module Hashdb
         @a[tbase] = base
         @a.store(name,[])
     end
-#Deleting tables
     def drop_table(name)
         tbase = name + "_base"
         @a.delete(name)
         @a.delete(tbase)
     end
-#Connect to a table
     def table(name)
         if @a.has_key? name
             tbase = name + "_base"
@@ -58,11 +121,11 @@ module Hashdb
             raise "Table #{name} does not exist"
         end
     end 
-#List Tables
+#Lists all the tables in the database
     def tables
         @a.keys
     end
-#Delete all tables
+#Deletes all tables in the database
     def clear
         @a.clear
     end
@@ -76,7 +139,7 @@ module Hashdb
         end 
         thr.join    
     end
-#This writes your hash to a file in json format
+#This writes your database to a file in json format
 #  db >> "data.json"  
     def >>(a)
         f = File.open(a,'w')
@@ -89,7 +152,7 @@ module Hashdb
         @file
     end
 #This renames your database
-#  db.rename("hash")  
+#  db.rename("hash.db")  
     def rename(a)
         File.rename(@file,a)
         @file = a
@@ -99,15 +162,15 @@ module Hashdb
     def del
         File.delete(@file)
     end
-#This returns json from selected table
-#  db.get_json("name") #=> {"name":"Ruby"} 
+#This returns JSON from selected table
+#  db.get_json("products")
     def get_json(a)
         x = {}
         x.store(a,@a[a])
         JSON.generate(x)
     end
-#This returns xml from a selected table
-#   db.get_xml("name") #=> <name>Ruby</name>     
+#This returns XML from a selected table
+#   db.get_xml("products")   
     def get_xml(a)
         r = ""
         if ishash(@a[a])
@@ -120,16 +183,13 @@ module Hashdb
         r    
     end    
 #This offloads the hashdb to a file other than the current file and  can also be used for backup pourposes
-#  db.offload("data")
+#  db.offload("backup.db")
     def offload(a)
         Zlib::GzipWriter.open(a) do |gz|
             gz.write(JSON.generate(@a))
         end
     end
-#This reloads data from the file
-#  db  #=> {"name"=>"Ruby"}
-#  db.clear   #=> {}
-#  db.reload  #=> {"name"=>"Ruby"}   
+#This reloads data from the file and discards unsaved changes  
     def reload
         @a.clear
         if File::exists? @file
@@ -147,15 +207,13 @@ module Hashdb
             Zlib::GzipWriter.open(a).close  
         end
     end
-#Tests an array not for external use 
     def isarray(e)
         if e.class == Array
             return true
         else
             return false
         end    
-    end
-#Tests a Hash not for external use     
+    end    
     def ishash(e)
         if e.class == Hash
             return true
@@ -163,8 +221,6 @@ module Hashdb
             return false
         end    
     end
-#This method generates xml from an array <b>note the prefixed 's' below</b> 
-# db.array_to_xml("array",[2,5])  #=> <array><sarray>2</sarray><sarray>5</sarray></array>
     def array_to_xml(k,a)
         sub = "<#{k}>"
         a.each{|o|
@@ -178,10 +234,7 @@ module Hashdb
         }
         sub << "</#{k}>"
         sub    
-    end
-#This is the method generates xml from a hash not just from the hashdb but from anywhere
-# ex  #=> {"name"=>"Ruby","since"=>1993}
-# db.hash_to_xml("data",ex)  #=> <data><name>Ruby</name><since>1993</since></data>   
+    end 
     def hash_to_xml(x,k)
         sub = "<#{x}>"
         k.each do |q,v|
@@ -205,8 +258,7 @@ module Hashdb
         end
         sub << "</#{x}>"
         sub
-    end
-#This is a JSON read Error    
+    end   
     def trig_json(line)
         err = "JSON Error at #{line} if data/file is null continue else verify your data/file"
         puts err        
