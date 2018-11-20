@@ -6,8 +6,8 @@ require "thread"
 
 module Hashdb
 #=Introduction
-#Hashdb is a small implementation of a database using a Hash and JSON for storage. It allows you to create, update, query and delete records.
-#It also allows you to set specific data types for your fields, default values and validates input.The main diffrence is that it uses ruby language for queries, hashes to add data into a database and it does not implement the complex features of ordinary databases.
+#Hashdb is a small implementation of a database using a Hash and JSON for storage written in 100% pure ruby. It allows you to create, update, query and delete records.
+#It also allows you to set specific data types for your fields, default values and validates input. In terms of queries you can set limits, select specific fields, sort by a field and also set a limit for the query.
 #==Field rules
 # Use string keys like ["products"] not [:products] due to JSON nature of storage
 #==Data types
@@ -112,11 +112,13 @@ module Hashdb
         @a.delete(tbase)
     end
     def table(name)
-        if @a.has_key? name
+        if @a.has_key? name and !name.match(/_base$/)
             tbase = name + "_base"
             x = Table.new(name,@a[tbase])
             x.inject(@a[tbase],@a[name])
             return x
+        elsif name.match(/_base$/)
+            raise "#{name} cannot be edited directly"
         else
             raise "Table #{name} does not exist"
         end

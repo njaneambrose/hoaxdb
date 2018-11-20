@@ -211,12 +211,14 @@ class Table
     def del_if(query)
         rm = []
         @data = self.load(@data)
-        @data.each do |row|
-            if eval(Query.new.parse(query))
-                rm.push(row)
+        d = Query.new.parse(query)
+        for x in 0...@data.size
+            row = @data[x]
+            if eval(d)
+                rm.push(x)
             end
         end
-        rm.each{|o| @data.delete(o)}
+        rm.reverse.each{|o| @data.delete_at(o)}
         @data = self.dump_array(@data)
     end
     def sort(a,key,flag)
@@ -233,28 +235,28 @@ class Table
         if min > max then a.delete_at(max) else a.delete_at(max-1) end
         for g in 0...a.size
             x = r.size
-            start = 0; en = 0
-            x /= 2    
-            if a[g][key] == r[x][key] 
-                r.insert(x+1,a[g])
-                next
-            end     
-            if a[g][key] > r[x][key]
-                en = x
-                start = r.size-2
-            else
-                en = 0
-                start = x
-            end
+            start = x; en = 0
+            begin
+                x = (start+en)/2
+                if a[g][key] == r[x][key]
+                    en = x
+                end    
+                if a[g][key] > r[x][key]
+                    en = x
+                else
+                    start = x
+                end
+            end until (start - en) < 2
+            if start == r.size then start -= 2 end
             (start).downto(en) do |h|
                 if h.eql? 0 then r.insert(1,a[g]); break end
+                if a[g][key] == r[x][key] then r.insert(x+1,a[g]); break end 
                 if a[g][key] > r[h][key]
                     r.insert(h+1,a[g])
                     break
                 end
             end    
-        end
-        r    
+        end   
         if flag then r.reverse! end
         r
     end
@@ -289,25 +291,26 @@ class Table
     def select_if(query,cols,limit=-1,sort=false,desc=false)
         result = []
         @data = self.load(@data)
-        rw = 1
+        x = Query.new.parse(query)
+        g = false
+        if cols[0].strip.eql? "*" then g = true end
         @data.each do |row|
-            break if rw.eql? (limit+1)
-            if eval(Query.new.parse(query))
+            if eval(x)
                 col = {}
-                if !cols[0].strip.eql? "*"
+                if !g
                     cols.each do |e|
                         col.store(e,row[e])
                     end
                     result.push(col)
                 else
                    result.push(row)
-                end
-                rw +=1     
+                end    
             end   
         end   
         if sort
             result = self.sort(result,sort,desc)   
         end
+        if limit != -1 then result = result[0...limit] end
         @data = self.dump_array(@data)  
         result = self.load(result)
         result    

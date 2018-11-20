@@ -1,6 +1,6 @@
 # Hashdb
 
-Hashdb is a simple implementation of a database but uses ruby Hashes and JSON for storage of data. It offers an interface to insert,update,query and delete records like any other databse but does not offer complex features of a database. You set specific data types for your fields and you can also have default values on top of that it validates the records you enter. In terms of queries you can choose specific fields, limits and also sort according to a specific field which can be ascending or descending. Queries are written using ruby hence no external knowledge is needed.
+Hashdb is a simple implementation of a database written in 100% pure ruby. It offers an interface to insert,update,query and delete records like any other databse but does not offer complex features of a database. You set specific data types for your fields and you can also have default values on top of that it validates the records you enter. In terms of queries you can choose specific fields, limits and also sort according to a specific field which can be ascending or descending. Queries are written using ruby hence no external knowledge is needed.
 
 ## Installation
 
