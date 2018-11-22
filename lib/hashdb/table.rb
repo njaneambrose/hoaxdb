@@ -150,6 +150,13 @@ class Table
         }
         @data.push(dt)         
     end
+    def alter_default(col,default)
+        if default.class.eql? eval(@base[col]['type'])
+            @base[col]['default'] = default
+        else
+            raise "#{default} is not of data type #{@base[col]['type']}"
+        end    
+    end
     def add_column(col,type)
         if @base.has_key? col
             raise "Column #{col} already exists"
@@ -221,54 +228,15 @@ class Table
         rm.reverse.each{|o| @data.delete_at(o)}
         @data = self.dump_array(@data)
     end
-    def sort(a,key,flag)
-        r = []
-        min = 0
-        max = 0
-        for e in 0...a.size
-            if (a[e][key]) > (a[max][key]) then max = e end
-            if (a[e][key]) < (a[min][key]) then min = e end
-        end
-        r.push(a[min])
-        r.push(a[max])
-        a.delete_at(min)
-        if min > max then a.delete_at(max) else a.delete_at(max-1) end
-        for g in 0...a.size
-            x = r.size
-            start = x; en = 0
-            begin
-                x = (start+en)/2
-                if a[g][key] == r[x][key]
-                    en = x
-                end    
-                if a[g][key] > r[x][key]
-                    en = x
-                else
-                    start = x
-                end
-            end until (start - en) < 2
-            if start == r.size then start -= 2 end
-            (start).downto(en) do |h|
-                if h.eql? 0 then r.insert(1,a[g]); break end
-                if a[g][key] == r[x][key] then r.insert(x+1,a[g]); break end 
-                if a[g][key] > r[h][key]
-                    r.insert(h+1,a[g])
-                    break
-                end
-            end    
-        end   
-        if flag then r.reverse! end
-        r
-    end
     def max(k)
-        if @base[k]['type'].eql? 'Integer' or @base[k]['type'].eql? 'Float'
+        if !@base[k]['type'].eql? 'Array' or !@base[k]['type'].eql? 'Hash'
             max = @data[0][k] || 0
             @data.each{|row| if row[k] > max then max = row[k] end}
             return max
         end
     end
     def min(k)
-        if @base[k]['type'].eql? 'Integer' or @base[k].eql? 'Float'
+        if !@base[k]['type'].eql? 'Array' or !@base[k].eql? 'Hash'
             min = @data[0][k] || 0
             @data.each{|row| if row[k] < min then min = row[k] end}
             return min
@@ -279,6 +247,8 @@ class Table
             sum = 0
             @data.each{|row| sum += row[k]}
             return (sum.to_f/@data.size)
+        else
+            raise "column #{k} is not of type Float or Integer"
         end
     end
     def sum(k)
@@ -286,29 +256,33 @@ class Table
             sum = 0
             @data.each{|row| sum += row[k]}
             return sum
+        else
+            raise "column #{k} is not of type Float or Integer"    
         end
     end
     def select_if(query,cols,limit=-1,sort=false,desc=false)
         result = []
         @data = self.load(@data)
         x = Query.new.parse(query)
+        res = @data.select{|row| eval(x)}
         g = false
         if cols[0].strip.eql? "*" then g = true end
-        @data.each do |row|
-            if eval(x)
-                col = {}
-                if !g
-                    cols.each do |e|
-                        col.store(e,row[e])
-                    end
-                    result.push(col)
-                else
-                   result.push(row)
-                end    
-            end   
+        res.each do |row|
+            col = {}
+            if !g
+                cols.each do |e|
+                    col.store(e,row[e])
+                end
+                result.push(col)
+            else
+               result.push(row)
+            end      
         end   
         if sort
-            result = self.sort(result,sort,desc)   
+            result = result.sort{|a,b| a[sort] <=> b[sort]}   
+        end
+        if desc
+            result.reverse!
         end
         if limit != -1 then result = result[0...limit] end
         @data = self.dump_array(@data)  
