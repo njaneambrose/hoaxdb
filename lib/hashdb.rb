@@ -65,7 +65,7 @@ module Hashdb
 #   products.update('this["name"].eql? "Iphone"',{"quantity"=>200})
 #==Deleting records
 #   #=> table.del_if('condition')
-#   products.update('this["name"].eql? "Iphone"')
+#   products.del_if('this["name"].eql? "Iphone"')
 #   p products.data #=> [{"name"=>"Cable Tvs","price"=>390.67,"quantity"=>400,shipped=>"2018-9-12"}]
 #==Adding fields
 #   products.add_column("remaining",{"type"=>"Integer","default"=>0})
@@ -88,7 +88,6 @@ module Hashdb
                     raise "We could not read any keys from #{a} the database may be corrupted"
                 rescue JSON::ParserError    
                     @a = {}
-                    trig_json(a)
                 end 
             else
                 Zlib::GzipWriter.open(a).close  
@@ -125,7 +124,9 @@ module Hashdb
     end 
 #Lists all the tables in the database
     def tables
-        @a.keys
+        tables = []
+        @a.keys.each{|e| if !e.match(/_base$/) then tables.push(e) end}
+        tables
     end
 #Deletes all tables in the database
     def clear
@@ -203,7 +204,6 @@ module Hashdb
             rescue Zlib::Error
                 raise "We could not reload #{@file} it may be corrupted"
             rescue JSON::ParserError
-                trig_json(@file)
             end    
         else
             Zlib::GzipWriter.open(a).close  
@@ -261,9 +261,5 @@ module Hashdb
         sub << "</#{x}>"
         sub
     end   
-    def trig_json(line)
-        err = "JSON Error at #{line} if data/file is null continue else verify your data/file"
-        puts err        
-    end
     end
 end
