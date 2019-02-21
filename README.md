@@ -23,27 +23,38 @@ Or install it yourself as:
 Using the hashdb is very simple once you have installed it, the following are the basics:
 #### Creating a table
 
-    require 'hashdb'
+ ```ruby
+ require 'hashdb'
     db = Hashdb.new('products.db') #This reads an existing database or creates a database
     db.create_table("products",{
        "name"=>{"type"=>"String","default"=>""}, #setting default prevents nil values
        "price"=>{"type"=>"Float","default"=>0.0}
     })
+```
+
 #### Inserting a record
 
-    products.insert({"name"=>"Iphone","price"=>100.67}) #insert a record
+```ruby  
+products.insert({"name"=>"Iphone","price"=>100.67}) #insert a record
+```
     
 #### Updating  a record
 
-     products.update('this["name"].eql? "Iphone"',{"quantity"=>200})
+```ruby
+products.update('this["name"].eql? "Iphone"',{"quantity"=>200})
+```
     
 #### Selecting records    
-     
-     products.select_if('this["name"].eql? "Iphone"')
+
+```ruby
+products.select_if('this["name"].eql? "Iphone"')
+```
      
 #### Deleting records
 
-    products.del_if('this["name"].eql? "Iphone"')
+```ruby
+products.del_if('this["name"].eql? "Iphone"')
+```
 
 More information is available via rdoc when the gem is installed
     
