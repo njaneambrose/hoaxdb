@@ -30,6 +30,7 @@ Using the hoaxdb is very simple once you have installed it, the following are th
        "name"=>{"type"=>"String","default"=>""}, #setting default prevents nil values
        "price"=>{"type"=>"Float","default"=>0.0}
     })
+	products = db.table("products") # connect to this table
 ```
 
 #### Inserting a record

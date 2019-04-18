@@ -6,6 +6,3 @@
 /pkg/
 /spec/reports/
 /tmp/
-lib/hash.rb
-lib/data.db
-lib/e.xml
